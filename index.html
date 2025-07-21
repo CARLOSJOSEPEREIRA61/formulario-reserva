@@ -23,8 +23,26 @@
     <label for="uh">Unidade Habitacional (UH):</label>
     <select name="uh" id="uh" required>
       <option value="">-- Selecione a UH --</option>
-      <!-- UHs de UH101 a UH120 -->
-      ${[...Array(20).keys()].map(i => `<option>UH${101 + i}</option>`).join('')}
+      <option>UH101</option>
+      <option>UH102</option>
+      <option>UH103</option>
+      <option>UH104</option>
+      <option>UH105</option>
+      <option>UH106</option>
+      <option>UH107</option>
+      <option>UH108</option>
+      <option>UH109</option>
+      <option>UH110</option>
+      <option>UH111</option>
+      <option>UH112</option>
+      <option>UH113</option>
+      <option>UH114</option>
+      <option>UH115</option>
+      <option>UH116</option>
+      <option>UH117</option>
+      <option>UH118</option>
+      <option>UH119</option>
+      <option>UH120</option>
     </select>
 
     <label for="origem">Origem da Reserva:</label>
@@ -43,6 +61,12 @@
     const checkin = document.getElementById('checkin');
     const checkout = document.getElementById('checkout');
 
+    // Define hoje como mínimo para check-in
+    const hoje = new Date();
+    const hojeISO = hoje.toISOString().split('T')[0];
+    checkin.min = hojeISO;
+
+    // Atualiza o mínimo do checkout sempre que o checkin mudar
     checkin.addEventListener('change', function () {
       if (checkin.value) {
         const dataCheckin = new Date(checkin.value);
@@ -52,7 +76,7 @@
         const isoMin = dataMinCheckout.toISOString().split('T')[0];
         checkout.min = isoMin;
 
-        // Limpa valor de checkout se for inválido
+        // Limpa checkout se for inválido
         if (checkout.value && checkout.value <= checkin.value) {
           checkout.value = '';
         }
@@ -61,4 +85,4 @@
   </script>
 
 </body>
-</html>
+</ht
