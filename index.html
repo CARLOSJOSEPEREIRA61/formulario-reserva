@@ -2,32 +2,18 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Reserva - Guaja745</title>
+  <title>Reserva de UH</title>
   <style>
-    body {
-      font-family: Arial;
-      max-width: 700px;
-      margin: auto;
-      padding-top: 40px;
-    }
-    label {
-      display: block;
-      margin-top: 10px;
-    }
-    input, select, button {
-      width: 100%;
-      padding: 8px;
-      margin-top: 5px;
-    }
-    table {
-      width: 100%;
-      margin-top: 30px;
+    body { font-family: Arial; max-width: 600px; margin: auto; padding: 30px; }
+    label { display: block; margin-top: 12px; }
+    input, select, button { width: 100%; padding: 10px; margin-top: 5px; }
+    #resultadoPlanilha {
+      margin-top: 40px;
       border-collapse: collapse;
+      width: 100%;
     }
-    table, th, td {
-      border: 1px solid #aaa;
-    }
-    td {
+    #resultadoPlanilha td, #resultadoPlanilha th {
+      border: 1px solid #ccc;
       padding: 6px;
       text-align: center;
     }
@@ -35,9 +21,9 @@
 </head>
 <body>
 
-  <h2>Reserva de UH - Guaja745</h2>
+  <h2>Reserva de UH</h2>
 
-  <form id="reservaForm" action="https://script.google.com/macros/s/AKfycbxejM3fEJ6HtGyuq-vVubKB5d65ZR8EDP_uVHeOwdEIVsKE50wKaUFv5y1L9XYfP9QdDQ/exec" method="POST">
+  <form id="reservaForm">
     <label for="checkin">Data de Check-in:</label>
     <input type="date" name="checkin" id="checkin" required>
 
@@ -80,82 +66,80 @@
     <button type="submit">Enviar Reserva</button>
   </form>
 
+  <div id="mensagem" style="margin-top: 20px; font-weight: bold;"></div>
+
   <h3>Visualização da Planilha REG (E50:L80)</h3>
-  <table id="tabelaPlanilha">
-    <tr><td>Carregando dados da planilha...</td></tr>
-  </table>
+  <table id="resultadoPlanilha"></table>
 
   <script>
-    const checkin = document.getElementById('checkin');
-    const checkout = document.getElementById('checkout');
-    const uh = document.getElementById('uh');
-    const origem = document.getElementById('origem');
-    const form = document.getElementById('reservaForm');
+    const form = document.getElementById("reservaForm");
+    const checkin = document.getElementById("checkin");
+    const checkout = document.getElementById("checkout");
 
     // Define hoje como mínimo para check-in
     const hoje = new Date();
-    const hojeISO = hoje.toISOString().split('T')[0];
-    checkin.min = hojeISO;
+    checkin.min = hoje.toISOString().split('T')[0];
 
-    // Atualiza mínimo do checkout quando check-in muda
-    checkin.addEventListener('change', function () {
-      if (checkin.value) {
-        const dataCheckin = new Date(checkin.value);
-        const dataMinCheckout = new Date(dataCheckin);
-        dataMinCheckout.setDate(dataCheckin.getDate() + 1);
-        checkout.min = dataMinCheckout.toISOString().split('T')[0];
-
-        if (checkout.value && checkout.value <= checkin.value) {
-          checkout.value = '';
-        }
-
-        checkout.focus(); // Avança
-      }
+    checkin.addEventListener("change", () => {
+      const data = new Date(checkin.value);
+      data.setDate(data.getDate() + 1);
+      checkout.min = data.toISOString().split('T')[0];
     });
 
-    checkout.addEventListener('change', () => uh.focus());
-    uh.addEventListener('change', () => origem.focus());
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
 
-    form.addEventListener('submit', function (e) {
-      if (!checkin.value || !checkout.value || !uh.value || !origem.value) {
-        e.preventDefault();
-        alert('Por favor, preencha todos os campos antes de enviar.');
+      const dados = new FormData(form);
+      const url = "https://script.google.com/macros/s/AKfycbxejM3fEJ6HtGyuq-vVubKB5d65ZR8EDP_uVHeOwdEIVsKE50wKaUFv5y1L9XYfP9QdDQ/exec";
+
+      try {
+        const resposta = await fetch(url, {
+          method: "POST",
+          body: dados
+        });
+
+        const texto = await resposta.text();
+        document.getElementById("mensagem").innerText = texto;
+
+        form.reset();
+        checkin.focus();
+
+        carregarTabela();
+      } catch (err) {
+        document.getElementById("mensagem").innerText = "Erro ao enviar reserva.";
+        console.error(err);
       }
     });
 
     async function carregarTabela() {
-      const tabela = document.getElementById('tabelaPlanilha');
-      tabela.innerHTML = '';
+      const url = "https://script.google.com/macros/s/AKfycbxejM3fEJ6HtGyuq-vVubKB5d65ZR8EDP_uVHeOwdEIVsKE50wKaUFv5y1L9XYfP9QdDQ/exec?action=lerRange";
 
       try {
-        const resposta = await fetch('https://script.google.com/macros/s/AKfycbxejM3fEJ6HtGyuq-vVubKB5d65ZR8EDP_uVHeOwdEIVsKE50wKaUFv5y1L9XYfP9QdDQ/exec?action=lerRange');
+        const resposta = await fetch(url);
         const dados = await resposta.json();
 
-        if (!Array.isArray(dados) || dados.length === 0) {
-          tabela.innerHTML = '<tr><td>Nenhum dado encontrado.</td></tr>';
-          return;
-        }
+        const tabela = document.getElementById("resultadoPlanilha");
+        tabela.innerHTML = "";
 
         dados.forEach(linha => {
-          const tr = document.createElement('tr');
+          const tr = document.createElement("tr");
           linha.forEach(celula => {
-            const td = document.createElement('td');
-            td.innerText = celula.valor || '';
-            td.style.backgroundColor = celula.bgColor || 'white';
-            td.style.color = celula.textColor || 'black';
-            td.style.fontWeight = celula.bold ? 'bold' : 'normal';
+            const td = document.createElement("td");
+            td.textContent = celula.valor;
+            td.style.backgroundColor = celula.bgColor;
+            td.style.color = celula.textColor;
+            if (celula.bold) td.style.fontWeight = "bold";
             tr.appendChild(td);
           });
           tabela.appendChild(tr);
         });
-
-      } catch (erro) {
-        console.error('Erro ao carregar a planilha:', erro);
-        tabela.innerHTML = '<tr><td style="color: red;">Erro ao carregar a planilha. Verifique a URL do script.</td></tr>';
+      } catch (err) {
+        document.getElementById("resultadoPlanilha").innerHTML = "<tr><td colspan='8'>Erro ao carregar a planilha.</td></tr>";
+        console.error(err);
       }
     }
 
-    window.onload = carregarTabela;
+    carregarTabela(); // Inicializa ao carregar a página
   </script>
 
 </body>
