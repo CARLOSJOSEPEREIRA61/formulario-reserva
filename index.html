@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Formulário de Reserva</title>
+  <style>
+    body { font-family: Arial; max-width: 500px; margin: auto; padding-top: 40px; }
+    label { display: block; margin-top: 10px; }
+    input, select, button { width: 100%; padding: 8px; margin-top: 5px; }
+  </style>
+</head>
+<body>
+
+  <h2>Reserva de UH</h2>
+
+  <form id="reservaForm" action="https://script.google.com/macros/s/AKfycbxejM3fEJ6HtGyuq-vVubKB5d65ZR8EDP_uVHeOwdEIVsKE50wKaUFv5y1L9XYfP9QdDQ/exec" method="POST">
+    <label for="checkin">Data de Check-in:</label>
+    <input type="date" name="checkin" id="checkin" required>
+
+    <label for="checkout">Data de Check-out:</label>
+    <input type="date" name="checkout" id="checkout" required>
+
+    <label for="uh">Unidade Habitacional (UH):</label>
+    <select name="uh" id="uh" required>
+      <option value="">-- Selecione a UH --</option>
+      <!-- UHs de UH101 a UH120 -->
+      ${[...Array(20).keys()].map(i => `<option>UH${101 + i}</option>`).join('')}
+    </select>
+
+    <label for="origem">Origem da Reserva:</label>
+    <select name="origem" id="origem" required>
+      <option value="">-- Selecione a origem --</option>
+      <option>Booking</option>
+      <option>Site</option>
+      <option>WhatsApp</option>
+      <option>Agência</option>
+    </select>
+
+    <button type="submit">Enviar Reserva</button>
+  </form>
+
+  <script>
+    const checkin = document.getElementById('checkin');
+    const checkout = document.getElementById('checkout');
+
+    checkin.addEventListener('change', function () {
+      if (checkin.value) {
+        const dataCheckin = new Date(checkin.value);
+        const dataMinCheckout = new Date(dataCheckin);
+        dataMinCheckout.setDate(dataCheckin.getDate() + 1);
+
+        const isoMin = dataMinCheckout.toISOString().split('T')[0];
+        checkout.min = isoMin;
+
+        // Limpa valor de checkout se for inválido
+        if (checkout.value && checkout.value <= checkin.value) {
+          checkout.value = '';
+        }
+      }
+    });
+  </script>
+
+</body>
+</html>
