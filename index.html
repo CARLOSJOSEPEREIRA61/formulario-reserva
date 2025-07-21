@@ -1,22 +1,16 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <title>Reserva de UH</title>
+  <meta charset="UTF-8" />
+  <title>Reserva e Ocupação</title>
   <style>
-    body { font-family: Arial; max-width: 600px; margin: auto; padding: 30px; }
-    label { display: block; margin-top: 12px; }
-    input, select, button { width: 100%; padding: 10px; margin-top: 5px; }
-    #resultadoPlanilha {
-      margin-top: 40px;
-      border-collapse: collapse;
-      width: 100%;
-    }
-    #resultadoPlanilha td, #resultadoPlanilha th {
-      border: 1px solid #ccc;
-      padding: 6px;
-      text-align: center;
-    }
+    body { font-family: Arial, sans-serif; max-width: 600px; margin: 40px auto; }
+    label { display: block; margin-top: 15px; }
+    input, select, button { width: 100%; padding: 8px; margin-top: 5px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 30px; }
+    th, td { border: 1px solid #999; padding: 6px; text-align: center; }
+    th { background-color: #eee; }
+    #mensagem { margin-top: 20px; font-weight: bold; color: green; }
   </style>
 </head>
 <body>
@@ -25,10 +19,10 @@
 
   <form id="reservaForm">
     <label for="checkin">Data de Check-in:</label>
-    <input type="date" name="checkin" id="checkin" required>
+    <input type="date" name="checkin" id="checkin" required />
 
     <label for="checkout">Data de Check-out:</label>
-    <input type="date" name="checkout" id="checkout" required>
+    <input type="date" name="checkout" id="checkout" required />
 
     <label for="uh">Unidade Habitacional (UH):</label>
     <select name="uh" id="uh" required>
@@ -66,80 +60,140 @@
     <button type="submit">Enviar Reserva</button>
   </form>
 
-  <div id="mensagem" style="margin-top: 20px; font-weight: bold;"></div>
+  <div id="mensagem"></div>
 
-  <h3>Visualização da Planilha REG (E50:L80)</h3>
-  <table id="resultadoPlanilha"></table>
+  <h2>Visualização da Ocupação (REG)</h2>
+  <table id="tabelaOcupacao">
+    <thead>
+      <tr id="headerRow"></tr>
+    </thead>
+    <tbody id="bodyRows"></tbody>
+  </table>
 
   <script>
+    const urlPost = "https://script.google.com/macros/s/AKfycbwIvRaCzmPa4_lJ4CHV-2TsHkpZWIoqnB7FExTFRuZKY6RQ3kSAWOvPZF5GontjLGLSoA/exec";
+    const urlGet = "https://script.google.com/macros/s/AKfycbwIvRaCzmPa4_lJ4CHV-2TsHkpZWIoqnB7FExTFRuZKY6RQ3kSAWOvPZF5GontjLGLSoA/exec";
+
     const form = document.getElementById("reservaForm");
-    const checkin = document.getElementById("checkin");
-    const checkout = document.getElementById("checkout");
+    const mensagem = document.getElementById("mensagem");
+    const tabela = document.getElementById("tabelaOcupacao");
+    const headerRow = document.getElementById("headerRow");
+    const bodyRows = document.getElementById("bodyRows");
 
-    // Define hoje como mínimo para check-in
+    // Definir datas mínimas nos inputs
+    const checkin = document.getElementById('checkin');
+    const checkout = document.getElementById('checkout');
     const hoje = new Date();
-    checkin.min = hoje.toISOString().split('T')[0];
+    const hojeISO = hoje.toISOString().split('T')[0];
+    checkin.min = hojeISO;
 
-    checkin.addEventListener("change", () => {
-      const data = new Date(checkin.value);
-      data.setDate(data.getDate() + 1);
-      checkout.min = data.toISOString().split('T')[0];
+    checkin.addEventListener('change', () => {
+      if (checkin.value) {
+        const dataCheckin = new Date(checkin.value);
+        const minCheckoutDate = new Date(dataCheckin);
+        minCheckoutDate.setDate(dataCheckin.getDate() + 1);
+        checkout.min = minCheckoutDate.toISOString().split('T')[0];
+        if (checkout.value && checkout.value <= checkin.value) checkout.value = '';
+        checkout.focus();
+      }
     });
 
-    form.addEventListener("submit", async (e) => {
+    checkout.addEventListener('change', () => {
+      if (checkout.value) uh.focus();
+    });
+
+    uh.addEventListener('change', () => {
+      origem.focus();
+    });
+
+    origem.addEventListener('change', () => {
+      if (form.checkValidity()) {
+        // optional: auto submit or enable button
+      }
+    });
+
+    // Enviar formulário
+    form.addEventListener("submit", e => {
       e.preventDefault();
-
-      const dados = new FormData(form);
-      const url = "https://script.google.com/macros/s/AKfycbxejM3fEJ6HtGyuq-vVubKB5d65ZR8EDP_uVHeOwdEIVsKE50wKaUFv5y1L9XYfP9QdDQ/exec";
-
-      try {
-        const resposta = await fetch(url, {
-          method: "POST",
-          body: dados
-        });
-
-        const texto = await resposta.text();
-        document.getElementById("mensagem").innerText = texto;
-
-        form.reset();
-        checkin.focus();
-
-        carregarTabela();
-      } catch (err) {
-        document.getElementById("mensagem").innerText = "Erro ao enviar reserva.";
-        console.error(err);
+      mensagem.textContent = "";
+      if (!form.checkValidity()) {
+        mensagem.textContent = "Por favor, preencha todos os campos corretamente.";
+        mensagem.style.color = "red";
+        return;
       }
+
+      const formData = new FormData(form);
+      fetch(urlPost, {
+        method: "POST",
+        body: new URLSearchParams(formData)
+      })
+      .then(res => res.text())
+      .then(text => {
+        mensagem.textContent = text;
+        mensagem.style.color = "green";
+        form.reset();
+        checkin.min = hojeISO; // reset min date
+        checkout.min = "";
+        carregarOcupacao();
+      })
+      .catch(err => {
+        mensagem.textContent = "Erro ao enviar a reserva.";
+        mensagem.style.color = "red";
+        console.error(err);
+      });
     });
 
-    async function carregarTabela() {
-      const url = "https://script.google.com/macros/s/AKfycbxejM3fEJ6HtGyuq-vVubKB5d65ZR8EDP_uVHeOwdEIVsKE50wKaUFv5y1L9XYfP9QdDQ/exec?action=lerRange";
-
-      try {
-        const resposta = await fetch(url);
-        const dados = await resposta.json();
-
-        const tabela = document.getElementById("resultadoPlanilha");
-        tabela.innerHTML = "";
-
-        dados.forEach(linha => {
-          const tr = document.createElement("tr");
-          linha.forEach(celula => {
-            const td = document.createElement("td");
-            td.textContent = celula.valor;
-            td.style.backgroundColor = celula.bgColor;
-            td.style.color = celula.textColor;
-            if (celula.bold) td.style.fontWeight = "bold";
-            tr.appendChild(td);
-          });
-          tabela.appendChild(tr);
+    // Carregar ocupação da planilha REG
+    function carregarOcupacao() {
+      fetch(urlGet)
+        .then(res => res.json())
+        .then(data => {
+          if (data.error) {
+            mensagem.textContent = "Erro ao carregar ocupação: " + data.error;
+            mensagem.style.color = "red";
+            return;
+          }
+          montarTabela(data);
+        })
+        .catch(err => {
+          mensagem.textContent = "Erro ao carregar ocupação.";
+          mensagem.style.color = "red";
+          console.error(err);
         });
-      } catch (err) {
-        document.getElementById("resultadoPlanilha").innerHTML = "<tr><td colspan='8'>Erro ao carregar a planilha.</td></tr>";
-        console.error(err);
-      }
     }
 
-    carregarTabela(); // Inicializa ao carregar a página
+    // Monta a tabela com os dados recebidos
+    function montarTabela(data) {
+      // limpa tabela
+      headerRow.innerHTML = "";
+      bodyRows.innerHTML = "";
+
+      // Criar cabeçalho com colunas G-Z = 20 colunas
+      // Se quiser pode personalizar os nomes aqui:
+      const colNames = [
+        "UH1", "UH2", "UH3", "UH4", "UH5", "UH6", "UH7", "UH8", "UH9", "UH10",
+        "UH11", "UH12", "UH13", "UH14", "UH15", "UH16", "UH17", "UH18", "UH19", "UH20"
+      ];
+      colNames.forEach(name => {
+        const th = document.createElement("th");
+        th.textContent = name;
+        headerRow.appendChild(th);
+      });
+
+      // Cada linha do array data é um dia, as colunas são as UH ocupações
+      data.forEach(row => {
+        const tr = document.createElement("tr");
+        row.forEach(cell => {
+          const td = document.createElement("td");
+          td.textContent = cell || "";
+          tr.appendChild(td);
+        });
+        bodyRows.appendChild(tr);
+      });
+    }
+
+    // Inicializa
+    carregarOcupacao();
   </script>
 
 </body>
