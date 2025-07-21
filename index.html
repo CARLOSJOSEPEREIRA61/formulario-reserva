@@ -4,9 +4,33 @@
   <meta charset="UTF-8">
   <title>Formulário de Reserva</title>
   <style>
-    body { font-family: Arial; max-width: 500px; margin: auto; padding-top: 40px; }
-    label { display: block; margin-top: 10px; }
-    input, select, button { width: 100%; padding: 8px; margin-top: 5px; }
+    body {
+      font-family: Arial;
+      max-width: 700px;
+      margin: auto;
+      padding-top: 40px;
+    }
+    label {
+      display: block;
+      margin-top: 10px;
+    }
+    input, select, button {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+    }
+    table {
+      width: 100%;
+      margin-top: 30px;
+      border-collapse: collapse;
+    }
+    table, th, td {
+      border: 1px solid #aaa;
+    }
+    td {
+      padding: 6px;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -51,38 +75,82 @@
       <option>1 AirBnB</option>
       <option>2 Booking</option>
       <option>3 Avulso</option>
-      <option>4 Outros</option>
     </select>
 
     <button type="submit">Enviar Reserva</button>
   </form>
 
+  <h3>Visualização da Planilha (E50:L80)</h3>
+  <table id="tabelaPlanilha"></table>
+
   <script>
     const checkin = document.getElementById('checkin');
     const checkout = document.getElementById('checkout');
+    const uh = document.getElementById('uh');
+    const origem = document.getElementById('origem');
+    const form = document.getElementById('reservaForm');
 
     // Define hoje como mínimo para check-in
     const hoje = new Date();
     const hojeISO = hoje.toISOString().split('T')[0];
     checkin.min = hojeISO;
 
-    // Atualiza o mínimo do checkout sempre que o checkin mudar
+    // Atualiza mínimo do checkout quando check-in muda
     checkin.addEventListener('change', function () {
       if (checkin.value) {
         const dataCheckin = new Date(checkin.value);
         const dataMinCheckout = new Date(dataCheckin);
         dataMinCheckout.setDate(dataCheckin.getDate() + 1);
+        checkout.min = dataMinCheckout.toISOString().split('T')[0];
 
-        const isoMin = dataMinCheckout.toISOString().split('T')[0];
-        checkout.min = isoMin;
-
-        // Limpa checkout se for inválido
         if (checkout.value && checkout.value <= checkin.value) {
           checkout.value = '';
         }
+
+        checkout.focus(); // Avança
       }
     });
+
+    // Foco automático para os campos seguintes
+    checkout.addEventListener('change', () => uh.focus());
+    uh.addEventListener('change', () => origem.focus());
+
+    // Impede envio com campos incompletos
+    form.addEventListener('submit', function (e) {
+      if (!checkin.value || !checkout.value || !uh.value || !origem.value) {
+        e.preventDefault();
+        alert('Por favor, preencha todos os campos antes de enviar.');
+      }
+    });
+
+    // Carrega os dados da planilha (range E50:L80)
+    async function carregarTabela() {
+      try {
+        const resposta = await fetch('https://script.google.com/macros/s/AKfycbxejM3fEJ6HtGyuq-vVubKB5d65ZR8EDP_uVHeOwdEIVsKE50wKaUFv5y1L9XYfP9QdDQ/exec?action=lerRange');
+        const dados = await resposta.json();
+
+        const tabela = document.getElementById('tabelaPlanilha');
+        tabela.innerHTML = '';
+
+        dados.forEach(linha => {
+          const tr = document.createElement('tr');
+          linha.forEach(celula => {
+            const td = document.createElement('td');
+            td.innerText = celula.valor || '';
+            td.style.backgroundColor = celula.bgColor || 'white';
+            td.style.color = celula.textColor || 'black';
+            td.style.fontWeight = celula.bold ? 'bold' : 'normal';
+            tr.appendChild(td);
+          });
+          tabela.appendChild(tr);
+        });
+      } catch (erro) {
+        console.error('Erro ao carregar a tabela:', erro);
+      }
+    }
+
+    window.onload = carregarTabela;
   </script>
 
 </body>
-</ht
+</html>
