@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Formulário de Reserva</title>
+  <title>Reserva - Guaja745</title>
   <style>
     body {
       font-family: Arial;
@@ -35,7 +35,7 @@
 </head>
 <body>
 
-  <h2>Reserva de UH</h2>
+  <h2>Reserva de UH - Guaja745</h2>
 
   <form id="reservaForm" action="https://script.google.com/macros/s/AKfycbxejM3fEJ6HtGyuq-vVubKB5d65ZR8EDP_uVHeOwdEIVsKE50wKaUFv5y1L9XYfP9QdDQ/exec" method="POST">
     <label for="checkin">Data de Check-in:</label>
@@ -80,8 +80,10 @@
     <button type="submit">Enviar Reserva</button>
   </form>
 
-  <h3>Visualização da Planilha (E50:L80)</h3>
-  <table id="tabelaPlanilha"></table>
+  <h3>Visualização da Planilha REG (E50:L80)</h3>
+  <table id="tabelaPlanilha">
+    <tr><td>Carregando dados da planilha...</td></tr>
+  </table>
 
   <script>
     const checkin = document.getElementById('checkin');
@@ -111,11 +113,9 @@
       }
     });
 
-    // Foco automático para os campos seguintes
     checkout.addEventListener('change', () => uh.focus());
     uh.addEventListener('change', () => origem.focus());
 
-    // Impede envio com campos incompletos
     form.addEventListener('submit', function (e) {
       if (!checkin.value || !checkout.value || !uh.value || !origem.value) {
         e.preventDefault();
@@ -123,14 +123,18 @@
       }
     });
 
-    // Carrega os dados da planilha (range E50:L80)
     async function carregarTabela() {
+      const tabela = document.getElementById('tabelaPlanilha');
+      tabela.innerHTML = '';
+
       try {
         const resposta = await fetch('https://script.google.com/macros/s/AKfycbxejM3fEJ6HtGyuq-vVubKB5d65ZR8EDP_uVHeOwdEIVsKE50wKaUFv5y1L9XYfP9QdDQ/exec?action=lerRange');
         const dados = await resposta.json();
 
-        const tabela = document.getElementById('tabelaPlanilha');
-        tabela.innerHTML = '';
+        if (!Array.isArray(dados) || dados.length === 0) {
+          tabela.innerHTML = '<tr><td>Nenhum dado encontrado.</td></tr>';
+          return;
+        }
 
         dados.forEach(linha => {
           const tr = document.createElement('tr');
@@ -144,8 +148,10 @@
           });
           tabela.appendChild(tr);
         });
+
       } catch (erro) {
-        console.error('Erro ao carregar a tabela:', erro);
+        console.error('Erro ao carregar a planilha:', erro);
+        tabela.innerHTML = '<tr><td style="color: red;">Erro ao carregar a planilha. Verifique a URL do script.</td></tr>';
       }
     }
 
