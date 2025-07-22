@@ -68,104 +68,103 @@
     <tbody id="bodyRows"></tbody>
   </table>
 
-<script>
-  const urlBase = "https://script.google.com/macros/s/AKfycbwxHznnpmB9I_meA2cAgIxLkF0B9n4j402LDo_j_BNxeMjQF0PVpObQqx8Rbp1Nz7_ZCw/exec";
-  const urlPost = urlBase;
-  const urlGet = urlBase + "?action=lerRangeDinamico";
+  <script>
+    const urlBase = "https://script.google.com/macros/s/AKfycbwxHznnpmB9I_meA2cAgIxLkF0B9n4j402LDo_j_BNxeMjQF0PVpObQqx8Rbp1Nz7_ZCw/exec";
+    const urlPost = urlBase;
+    const urlGet = urlBase + "?action=lerRangeDinamico";
 
-  const form = document.getElementById("reservaForm");
-  const mensagem = document.getElementById("mensagem");
-  const headerRow = document.getElementById("headerRow");
-  const bodyRows = document.getElementById("bodyRows");
+    const form = document.getElementById("reservaForm");
+    const mensagem = document.getElementById("mensagem");
+    const headerRow = document.getElementById("headerRow");
+    const bodyRows = document.getElementById("bodyRows");
 
-  // Ajuste das datas mínima para checkin e checkout
-  const checkin = document.getElementById("checkin");
-  const checkout = document.getElementById("checkout");
-  const hoje = new Date();
-  checkin.min = hoje.toISOString().split('T')[0];
-  checkin.addEventListener("change", () => {
-    if (checkin.value) {
-      const d = new Date(checkin.value);
-      d.setDate(d.getDate() + 1);
-      checkout.min = d.toISOString().split("T")[0];
-      if (checkout.value <= checkin.value) checkout.value = "";
-    }
-  });
+    const checkin = document.getElementById("checkin");
+    const checkout = document.getElementById("checkout");
 
-  form.addEventListener("submit", (e) => {
-    e.preventDefault();
-    mensagem.textContent = "";
-    const formData = new FormData(form);
-    fetch(urlPost, {
-      method: "POST",
-      body: new URLSearchParams(formData)
-    })
-    .then(res => res.json())
-    .then(json => {
-      if (json.status === "success") {
-        mensagem.textContent = json.message;
-        mensagem.style.color = "green";
-        form.reset();
-        carregarOcupacao();
-      } else {
-        mensagem.textContent = json.message || "Erro ao salvar.";
-        mensagem.style.color = "red";
+    // Define limites mínimos para datas
+    const hoje = new Date();
+    const hojeISO = hoje.toISOString().split('T')[0];
+    checkin.min = hojeISO;
+
+    checkin.addEventListener("change", () => {
+      if (checkin.value) {
+        const d = new Date(checkin.value);
+        d.setDate(d.getDate() + 1);
+        checkout.min = d.toISOString().split("T")[0];
+        if (checkout.value <= checkin.value) checkout.value = "";
       }
-    })
-    .catch(() => {
-      mensagem.textContent = "Erro ao enviar reserva.";
-      mensagem.style.color = "red";
     });
-  });
 
-  function carregarOcupacao() {
-    fetch(urlGet)
-      .then(res => res.json())
-      .then(json => {
-        if (json.status === "success") {
-          montarTabela(json.data);
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      mensagem.style.color = "black";
+      mensagem.textContent = "Enviando reserva...";
+
+      const formData = new FormData(form);
+      const data = {};
+      formData.forEach((v,k) => data[k] = v);
+
+      try {
+        const response = await fetch(urlPost, {
+          method: "POST",
+          body: new URLSearchParams(data)
+        });
+        const result = await response.json();
+
+        if(result.status === "success"){
+          mensagem.style.color = "green";
+          mensagem.textContent = result.message;
+          form.reset();
         } else {
-          mensagem.textContent = json.message || "Erro ao carregar ocupação.";
           mensagem.style.color = "red";
+          mensagem.textContent = result.message;
         }
-      })
-      .catch(() => {
-        mensagem.textContent = "Erro ao carregar ocupação.";
+      } catch (error) {
         mensagem.style.color = "red";
-      });
-  }
-
-  function montarTabela(dados) {
-    headerRow.innerHTML = "";
-    bodyRows.innerHTML = "";
-
-    if (!dados.length) {
-      mensagem.textContent = "Nenhum dado de ocupação disponível.";
-      return;
-    }
-
-    // Criar cabeçalho: UH1, UH2, ... UH20 (considerando 20 colunas)
-    for (let i = 1; i <= dados[0].length; i++) {
-      const th = document.createElement("th");
-      th.textContent = `UH${i}`;
-      headerRow.appendChild(th);
-    }
-
-    // Criar linhas com os dados
-    dados.forEach(linha => {
-      const tr = document.createElement("tr");
-      linha.forEach(celula => {
-        const td = document.createElement("td");
-        td.textContent = celula;
-        tr.appendChild(td);
-      });
-      bodyRows.appendChild(tr);
+        mensagem.textContent = "Erro ao enviar: " + error.message;
+      }
     });
-  }
 
-  // Carrega dados na inicialização da página
-  carregarOcupacao();
-</script>
+    async function carregarTabela() {
+      try {
+        const response = await fetch(urlGet);
+        const json = await response.json();
 
+        if (json.status !== "success") {
+          mensagem.style.color = "red";
+          mensagem.textContent = json.message;
+          return;
+        }
+
+        // Limpa tabela
+        headerRow.innerHTML = "";
+        bodyRows.innerHTML = "";
+
+        // Monta cabeçalho
+        json.headers.forEach(h => {
+          const th = document.createElement("th");
+          th.textContent = h;
+          headerRow.appendChild(th);
+        });
+
+        // Monta linhas
+        json.data.forEach(row => {
+          const tr = document.createElement("tr");
+          row.forEach(cell => {
+            const td = document.createElement("td");
+            td.textContent = cell;
+            tr.appendChild(td);
+          });
+          bodyRows.appendChild(tr);
+        });
+
+      } catch (error) {
+        mensagem.style.color = "red";
+        mensagem.textContent = "Erro ao carregar tabela: " + error.message;
+      }
+    }
+
+    carregarTabela();
+  </script>
 </body>
 </html>
