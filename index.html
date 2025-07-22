@@ -1,200 +1,103 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8" />
-  <title>Reserva e Ocupação</title>
-  <style>
-    body { font-family: Arial, sans-serif; max-width: 600px; margin: 40px auto; }
-    label { display: block; margin-top: 15px; }
-    input, select, button { width: 100%; padding: 8px; margin-top: 5px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 30px; }
-    th, td { border: 1px solid #999; padding: 6px; text-align: center; }
-    th { background-color: #eee; }
-    #mensagem { margin-top: 20px; font-weight: bold; color: green; }
-  </style>
-</head>
-<body>
+const SPREADSHEET_ID = "1Jnsj-VHyPntKk0D2SciUFaSvlFiP5xqxllsg0F0OxPI"; // ID da planilha
 
-  <h2>Reserva de UH</h2>
+function doPost(e) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = ss.getSheetByName("Sheet1");
 
-  <form id="reservaForm">
-    <label for="checkin">Data de Check-in:</label>
-    <input type="date" name="checkin" id="checkin" required />
+    const [ano, mes, dia] = e.parameter.checkin.split('-').map(Number);
+    const checkin = new Date(ano, mes - 1, dia, 12); // meio-dia para evitar problema de fuso
 
-    <label for="checkout">Data de Check-out:</label>
-    <input type="date" name="checkout" id="checkout" required />
+    const checkout = e.parameter.checkout;
+    const uh = e.parameter.uh;
+    const origem = e.parameter.origem;
 
-    <label for="uh">Unidade Habitacional (UH):</label>
-    <select name="uh" id="uh" required>
-      <option value="">-- Selecione a UH --</option>
-      <option>01 Amora Mel</option>
-      <option>02 Francisco</option>
-      <option>03 Luna</option>
-      <option>04 Teca</option>
-      <option>05 Bento</option>
-      <option>06 Luca</option>
-      <option>07 Augusto</option>
-      <option>08 Marie Lili</option>
-      <option>09 Leo</option>
-      <option>10 Nino</option>
-      <option>11 Tony</option>
-      <option>12 Kiko</option>
-      <option>13 Anita</option>
-      <option>14</option>
-      <option>15</option>
-      <option>16</option>
-      <option>17</option>
-      <option>18</option>
-      <option>19</option>
-      <option>20</option>
-    </select>
+    const dataEnvio = new Date();
 
-    <label for="origem">Origem da Reserva:</label>
-    <select name="origem" id="origem" required>
-      <option value="">-- Selecione a origem --</option>
-      <option>1 AirBnB</option>
-      <option>2 Booking</option>
-      <option>3 Avulso</option>
-    </select>
+    const chave = Utilities.formatDate(checkin, Session.getScriptTimeZone(), "dd/MM/yyyy") + uh.slice(0, 2);
+    const repeticao = checkout;
+    const codigo = origem.slice(0, 1);
 
-    <button type="submit">Enviar Reserva</button>
-  </form>
+    sheet.appendRow([
+      chave,
+      dataEnvio,
+      Utilities.formatDate(checkin, Session.getScriptTimeZone(), "yyyy-MM-dd"),
+      checkout,
+      uh,
+      repeticao,
+      codigo
+    ]);
 
-  <div id="mensagem"></div>
+    return ContentService
+      .createTextOutput(JSON.stringify({ status: "success", message: "Reserva gravada com sucesso." }))
+      .setMimeType(ContentService.MimeType.JSON);
 
-  <h2>Visualização da Ocupação (REG)</h2>
-  <table id="tabelaOcupacao">
-    <thead>
-      <tr id="headerRow"></tr>
-    </thead>
-    <tbody id="bodyRows"></tbody>
-  </table>
+  } catch (error) {
+    return ContentService
+      .createTextOutput(JSON.stringify({ status: "error", message: error.message }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
 
-  <script>
-    const urlPost = "https://script.google.com/macros/s/AKfycbwxHznnpmB9I_meA2cAgIxLkF0B9n4j402LDo_j_BNxeMjQF0PVpObQqx8Rbp1Nz7_ZCw/exec";
-    const urlGet = "https://script.google.com/macros/s/AKfycbwxHznnpmB9I_meA2cAgIxLkF0B9n4j402LDo_j_BNxeMjQF0PVpObQqx8Rbp1Nz7_ZCw/exec";
 
-    const form = document.getElementById("reservaForm");
-    const mensagem = document.getElementById("mensagem");
-    const tabela = document.getElementById("tabelaOcupacao");
-    const headerRow = document.getElementById("headerRow");
-    const bodyRows = document.getElementById("bodyRows");
+function doGet(e) {
+  try {
+    if (e.parameter.action === "lerRangeDinamico") {
+      const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+      const sheet = ss.getSheetByName("REG");
+      if (!sheet) throw new Error("Aba REG não encontrada");
 
-    // Definir datas mínimas nos inputs
-    const checkin = document.getElementById('checkin');
-    const checkout = document.getElementById('checkout');
-    const hoje = new Date();
-    const hojeISO = hoje.toISOString().split('T')[0];
-    checkin.min = hojeISO;
+      const hoje = new Date();
+      hoje.setHours(0, 0, 0, 0);
+      const ontem = new Date(hoje);
+      ontem.setDate(ontem.getDate() - 1);
 
-    checkin.addEventListener('change', () => {
-      if (checkin.value) {
-        const dataCheckin = new Date(checkin.value);
-        const minCheckoutDate = new Date(dataCheckin);
-        minCheckoutDate.setDate(dataCheckin.getDate() + 1);
-        checkout.min = minCheckoutDate.toISOString().split('T')[0];
-        if (checkout.value && checkout.value <= checkin.value) checkout.value = '';
-        checkout.focus();
-      }
-    });
+      const dataFinal = new Date(ontem);
+      dataFinal.setDate(dataFinal.getDate() + 35);
 
-    checkout.addEventListener('change', () => {
-      if (checkout.value) uh.focus();
-    });
+      const lastRow = sheet.getLastRow();
+      const datasColA = sheet.getRange(1, 1, lastRow).getValues().flat();
 
-    uh.addEventListener('change', () => {
-      origem.focus();
-    });
+      let startRow = null;
+      let endRow = null;
 
-    origem.addEventListener('change', () => {
-      if (form.checkValidity()) {
-        // optional: auto submit or enable button
-      }
-    });
-
-    // Enviar formulário
-    form.addEventListener("submit", e => {
-      e.preventDefault();
-      mensagem.textContent = "";
-      if (!form.checkValidity()) {
-        mensagem.textContent = "Por favor, preencha todos os campos corretamente.";
-        mensagem.style.color = "red";
-        return;
+      for (let i = 0; i < datasColA.length; i++) {
+        let cellDate = datasColA[i];
+        if (!(cellDate instanceof Date)) continue;
+        if (startRow === null && cellDate >= ontem) {
+          startRow = i + 1;
+        }
+        if (cellDate > dataFinal) {
+          endRow = i;
+          break;
+        }
       }
 
-      const formData = new FormData(form);
-      fetch(urlPost, {
-        method: "POST",
-        body: new URLSearchParams(formData)
-      })
-      .then(res => res.text())
-      .then(text => {
-        mensagem.textContent = text;
-        mensagem.style.color = "green";
-        form.reset();
-        checkin.min = hojeISO; // reset min date
-        checkout.min = "";
-        carregarOcupacao();
-      })
-      .catch(err => {
-        mensagem.textContent = "Erro ao enviar a reserva.";
-        mensagem.style.color = "red";
-        console.error(err);
-      });
-    });
+      if (startRow === null) {
+        return ContentService.createTextOutput(JSON.stringify({
+          status: "error",
+          message: "Nenhuma data encontrada para o intervalo solicitado"
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
 
-    // Carregar ocupação da planilha REG
-    function carregarOcupacao() {
-      fetch(urlGet)
-        .then(res => res.json())
-        .then(data => {
-          if (data.error) {
-            mensagem.textContent = "Erro ao carregar ocupação: " + data.error;
-            mensagem.style.color = "red";
-            return;
-          }
-          montarTabela(data);
-        })
-        .catch(err => {
-          mensagem.textContent = "Erro ao carregar ocupação.";
-          mensagem.style.color = "red";
-          console.error(err);
-        });
+      if (endRow === null) endRow = lastRow;
+      const numLinhas = endRow - startRow + 1;
+
+      const rangeDados = sheet.getRange(startRow, 7, numLinhas, 20); // col G a Z
+      const dados = rangeDados.getDisplayValues();
+
+      return ContentService
+        .createTextOutput(JSON.stringify({ status: "success", data: dados }))
+        .setMimeType(ContentService.MimeType.JSON);
     }
 
-    // Monta a tabela com os dados recebidos
-    function montarTabela(data) {
-      // limpa tabela
-      headerRow.innerHTML = "";
-      bodyRows.innerHTML = "";
+    return ContentService
+      .createTextOutput(JSON.stringify({ status: "error", message: "Parâmetro action inválido" }))
+      .setMimeType(ContentService.MimeType.JSON);
 
-      // Criar cabeçalho com colunas G-Z = 20 colunas
-      // Se quiser pode personalizar os nomes aqui:
-      const colNames = [
-        "UH1", "UH2", "UH3", "UH4", "UH5", "UH6", "UH7", "UH8", "UH9", "UH10",
-        "UH11", "UH12", "UH13", "UH14", "UH15", "UH16", "UH17", "UH18", "UH19", "UH20"
-      ];
-      colNames.forEach(name => {
-        const th = document.createElement("th");
-        th.textContent = name;
-        headerRow.appendChild(th);
-      });
-
-      // Cada linha do array data é um dia, as colunas são as UH ocupações
-      data.forEach(row => {
-        const tr = document.createElement("tr");
-        row.forEach(cell => {
-          const td = document.createElement("td");
-          td.textContent = cell || "";
-          tr.appendChild(td);
-        });
-        bodyRows.appendChild(tr);
-      });
-    }
-
-    // Inicializa
-    carregarOcupacao();
-  </script>
-
-</body>
-</html>
+  } catch (error) {
+    return ContentService
+      .createTextOutput(JSON.stringify({ status: "error", message: error.message }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
