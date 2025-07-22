@@ -2,31 +2,26 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>Reserva e Ocupação - Guaja_745</title>
+  <title>Reserva Guaja_745</title>
   <style>
-    body { font-family: Arial, sans-serif; max-width: 600px; margin: 40px auto; }
-    label { display: block; margin-top: 15px; }
+    body { font-family: sans-serif; max-width: 600px; margin: 40px auto; }
+    label { display: block; margin-top: 10px; }
     input, select, button { width: 100%; padding: 8px; margin-top: 5px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 30px; }
-    th, td { border: 1px solid #999; padding: 6px; text-align: center; }
-    th { background-color: #eee; }
     #mensagem { margin-top: 20px; font-weight: bold; }
   </style>
 </head>
 <body>
-
-  <h2>Reserva de UH</h2>
-
+  <h2>Formulário de Reserva</h2>
   <form id="reservaForm">
-    <label for="checkin">Data de Check-in:</label>
-    <input type="date" name="checkin" id="checkin" required />
+    <label for="checkin">Check-in:</label>
+    <input type="date" id="checkin" name="checkin" required>
 
-    <label for="checkout">Data de Check-out:</label>
-    <input type="date" name="checkout" id="checkout" required />
+    <label for="checkout">Check-out:</label>
+    <input type="date" id="checkout" name="checkout" required>
 
     <label for="uh">Unidade Habitacional (UH):</label>
-    <select name="uh" id="uh" required>
-      <option value="">-- Selecione a UH --</option>
+    <select id="uh" name="uh" required>
+      <option value="">Selecione</option>
       <option>01 Amora Mel</option>
       <option>02 Francisco</option>
       <option>03 Luna</option>
@@ -50,8 +45,8 @@
     </select>
 
     <label for="origem">Origem da Reserva:</label>
-    <select name="origem" id="origem" required>
-      <option value="">-- Selecione a origem --</option>
+    <select id="origem" name="origem" required>
+      <option value="">Selecione</option>
       <option>1 AirBnB</option>
       <option>2 Booking</option>
       <option>3 Avulso</option>
@@ -62,110 +57,38 @@
 
   <div id="mensagem"></div>
 
-  <h2>Visualização da Ocupação (Reg)</h2>
-  <table id="tabelaOcupacao">
-    <thead><tr id="headerRow"></tr></thead>
-    <tbody id="bodyRows"></tbody>
-  </table>
-
   <script>
-    const urlBase = "https://script.google.com/macros/s/AKfycbxAcyQ2CaqwRKZrPmaiUq2p41wWiOzdBRbgzWNRV5zO0MMndxsu3SUF8xsahsZRILu3/exec";
-    const urlPost = urlBase;
-    const urlGet = urlBase + "?action=lerRangeDinamico";
-
     const form = document.getElementById("reservaForm");
     const mensagem = document.getElementById("mensagem");
-    const headerRow = document.getElementById("headerRow");
-    const bodyRows = document.getElementById("bodyRows");
 
-    const checkin = document.getElementById("checkin");
-    const checkout = document.getElementById("checkout");
-
-    // Data mínima para check-in = hoje
-    const hoje = new Date();
-    const hojeISO = hoje.toISOString().split('T')[0];
-    checkin.min = hojeISO;
-
-    checkin.addEventListener("change", () => {
-      if (checkin.value) {
-        const d = new Date(checkin.value);
-        d.setDate(d.getDate() + 1);
-        checkout.min = d.toISOString().split("T")[0];
-        if (checkout.value <= checkin.value) checkout.value = "";
-      }
-    });
-
-    form.addEventListener("submit", e => {
+    form.addEventListener("submit", function(e) {
       e.preventDefault();
-      mensagem.textContent = "";
-      mensagem.style.color = "black";
+      mensagem.textContent = "Enviando...";
 
       const formData = new FormData(form);
-      fetch(urlPost, {
+      const data = new URLSearchParams(formData);
+
+      fetch("https://script.google.com/macros/s/AKfycbxAcyQ2CaqwRKZrPmaiUq2p41wWiOzdBRbgzWNRV5zO0MMndxsu3SUF8xsahsZRILu3/exec", {
         method: "POST",
-        body: new URLSearchParams(formData),
+        body: data
       })
       .then(res => res.json())
       .then(json => {
         if (json.status === "success") {
-          mensagem.textContent = json.message;
           mensagem.style.color = "green";
+          mensagem.textContent = json.message;
           form.reset();
-          carregarOcupacao();
         } else {
-          mensagem.textContent = json.message || "Erro ao salvar.";
           mensagem.style.color = "red";
+          mensagem.textContent = json.message || "Erro desconhecido.";
         }
       })
       .catch(err => {
-        mensagem.textContent = "Erro ao enviar reserva.";
         mensagem.style.color = "red";
+        mensagem.textContent = "Erro na comunicação.";
         console.error(err);
       });
     });
-
-    function carregarOcupacao() {
-      fetch(urlGet)
-        .then(res => res.json())
-        .then(json => {
-          if (json.status !== "success") {
-            mensagem.textContent = json.message || "Erro ao carregar ocupação.";
-            mensagem.style.color = "red";
-            return;
-          }
-          montarTabela(json.data);
-        })
-        .catch(err => {
-          mensagem.textContent = "Erro ao carregar ocupação.";
-          mensagem.style.color = "red";
-          console.error(err);
-        });
-    }
-
-    function montarTabela(dados) {
-      headerRow.innerHTML = "";
-      bodyRows.innerHTML = "";
-
-      // Cabeçalho UH1 a UH20 (colunas G a Z)
-      for (let i = 1; i <= 20; i++) {
-        const th = document.createElement("th");
-        th.textContent = "UH" + i;
-        headerRow.appendChild(th);
-      }
-
-      dados.forEach(linha => {
-        const tr = document.createElement("tr");
-        linha.forEach(cel => {
-          const td = document.createElement("td");
-          td.textContent = cel;
-          tr.appendChild(td);
-        });
-        bodyRows.appendChild(tr);
-      });
-    }
-
-    carregarOcupacao();
   </script>
-
 </body>
 </html>
